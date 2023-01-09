@@ -100,6 +100,7 @@ $label-horizontal-spacing: awsui.$space-l;
   font-size: awsui.$font-tabs-size;
   line-height: awsui.$font-tabs-line-height;
   font-weight: awsui.$font-wayfinding-link-active-weight;
+  @include styles.font-smoothing;
   color: awsui.$color-text-interactive-default;
 
   &:hover {
@@ -141,6 +142,7 @@ $label-horizontal-spacing: awsui.$space-l;
 .tabs-tab-disabled {
   &,
   &:hover {
+    pointer-events: none;
     cursor: default;
     color: awsui.$color-text-interactive-disabled;
     font-weight: awsui.$font-tabs-disabled-weight;

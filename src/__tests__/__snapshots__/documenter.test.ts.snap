@@ -207,7 +207,7 @@ the component.",
           Object {
             "name": "labelHotspot",
             "optional": false,
-            "type": "(openState: boolean) => string",
+            "type": "(openState: boolean, stepIndex: number, totalStepCount: number) => string",
           },
           Object {
             "name": "nextButtonText",
@@ -1456,7 +1456,7 @@ in a slight, visible lag when scrolling complex pages.",
 * \`manual\` - You will set up \`onChange\` or \`onLoadItems\` event listeners and filter options on your side or request
 them from server.
 By default the component will filter the provided \`options\` based on the value of the filtering input field.
-Only options that have a \`value\` or \`label\` that contains the input value as a substring
+Only options that have a \`value\`, \`label\`, \`description\` or \`labelTag\` that contains the input value as a substring
 are displayed in the list of options.
 
 If you set this property to \`manual\`, this default filtering mechanism is disabled and all provided \`options\` are
@@ -2604,6 +2604,9 @@ This property is ignored if you use a predefined icon or if you set your custom 
           "angle-up",
           "angle-down",
           "arrow-left",
+          "audio-full",
+          "audio-half",
+          "audio-off",
           "bug",
           "call",
           "calendar",
@@ -2617,6 +2620,7 @@ This property is ignored if you use a predefined icon or if you set your custom 
           "contact",
           "close",
           "copy",
+          "delete-marker",
           "download",
           "edit",
           "ellipsis",
@@ -2626,19 +2630,30 @@ This property is ignored if you use a predefined icon or if you set your custom 
           "file-open",
           "file",
           "filter",
+          "flag",
           "folder-open",
           "folder",
+          "group-active",
+          "group",
           "heart",
+          "insert-row",
           "key",
+          "keyboard",
           "lock-private",
           "menu",
           "microphone",
+          "microphone-off",
+          "multiscreen",
           "notification",
           "redo",
           "refresh",
+          "remove",
+          "script",
           "search",
+          "security",
           "settings",
           "share",
+          "shrink",
           "status-in-progress",
           "status-info",
           "status-negative",
@@ -2646,17 +2661,29 @@ This property is ignored if you use a predefined icon or if you set your custom 
           "status-positive",
           "status-stopped",
           "status-warning",
+          "suggestions",
+          "thumbs-down-filled",
+          "thumbs-down",
+          "thumbs-up-filled",
+          "thumbs-up",
+          "ticket",
           "treeview-collapse",
           "treeview-expand",
           "undo",
           "unlocked",
+          "upload-download",
           "upload",
+          "user-profile-active",
           "user-profile",
+          "video-off",
+          "video-on",
+          "video-unavailable",
           "view-full",
           "view-horizontal",
           "view-vertical",
           "zoom-in",
           "zoom-out",
+          "zoom-to-fit",
         ],
       },
       "name": "iconName",
@@ -3821,7 +3848,9 @@ The object should contain, among others:
       "type": "string",
     },
     Object {
-      "description": "Specifies the programming language. You can use any of the programming languages supported by the \`ace\` object that you provide.",
+      "description": "Specifies the programming language. You can use any of the programming languages supported by the \`ace\` object that you provide.
+Alternatively, this can be used to set a language that is not supported by the default \`language\` list. Make sure you've added the highlighting support for this language to the Ace instance.
+For more info on custom languages, see the [Code editor API](/components/code-editor?tabId=api) page.",
       "inlineType": Object {
         "name": "CodeEditorProps.Language",
         "properties": Array [],
@@ -3830,6 +3859,12 @@ The object should contain, among others:
       "name": "language",
       "optional": false,
       "type": "CodeEditorProps.Language",
+    },
+    Object {
+      "description": "Specifies a custom label language. If set, it overrides the default language label.",
+      "name": "languageLabel",
+      "optional": true,
+      "type": "string",
     },
     Object {
       "description": "Renders the code editor in a loading state.",
@@ -3920,6 +3955,11 @@ The values for all configured preferences are present even if the user didn't ch
             "name": "pageSize",
             "optional": true,
             "type": "number",
+          },
+          Object {
+            "name": "stripedRows",
+            "optional": true,
+            "type": "false | true",
           },
           Object {
             "name": "visibleContent",
@@ -4050,6 +4090,11 @@ It contains the following:
             "type": "number",
           },
           Object {
+            "name": "stripedRows",
+            "optional": true,
+            "type": "false | true",
+          },
+          Object {
             "name": "visibleContent",
             "optional": true,
             "type": "ReadonlyArray<string>",
@@ -4065,6 +4110,36 @@ It contains the following:
       "name": "preferences",
       "optional": true,
       "type": "CollectionPreferencesProps.Preferences<CustomPreferenceType>",
+    },
+    Object {
+      "description": "Configures the built-in \\"striped rows\\" preference.
+If you set it, the component displays this preference in the modal.
+
+It contains the following:
+- \`label\` (string) - Specifies the label for the option checkbox.
+- \`description\` (string) - Specifies the text displayed below the checkbox label.
+
+You must set the current value in the \`preferences.stripedRows\` property.
+",
+      "inlineType": Object {
+        "name": "CollectionPreferencesProps.StripedRowsPreference",
+        "properties": Array [
+          Object {
+            "name": "description",
+            "optional": false,
+            "type": "string",
+          },
+          Object {
+            "name": "label",
+            "optional": false,
+            "type": "string",
+          },
+        ],
+        "type": "object",
+      },
+      "name": "stripedRowsPreference",
+      "optional": true,
+      "type": "CollectionPreferencesProps.StripedRowsPreference",
     },
     Object {
       "description": "Specifies the title of the preferences modal dialog. It is also used as an \`aria-label\` for the trigger button.",
@@ -4245,6 +4320,16 @@ Object {
       "defaultValue": "false",
       "description": "Determines whether the container header has padding. If \`true\`, removes the default padding from the header.",
       "name": "disableHeaderPaddings",
+      "optional": true,
+      "type": "boolean",
+    },
+    Object {
+      "description": "Enabling this property will make the container to fit into available height. If content is too short, the container
+will stretch, if too long, the container will shrink and show vertical scrollbar.
+Use this property to align heights of multiple containers displayed in a single row. It is recommended to stretch
+all containers to the height of the longest one, to avoid extra vertical scroll areas.
+",
+      "name": "fitHeight",
       "optional": true,
       "type": "boolean",
     },
@@ -4842,6 +4927,27 @@ is provided by its parent form field component.
       "name": "controlId",
       "optional": true,
       "type": "string",
+    },
+    Object {
+      "description": "Specifies an additional control displayed in the dropdown, located below the range calendar.",
+      "inlineType": Object {
+        "name": "DateRangePickerProps.AbsoluteRangeControl",
+        "parameters": Array [
+          Object {
+            "name": "selectedRange",
+            "type": "DateRangePickerProps.PendingAbsoluteValue",
+          },
+          Object {
+            "name": "setSelectedRange",
+            "type": "React.Dispatch<React.SetStateAction<DateRangePickerProps.PendingAbsoluteValue>>",
+          },
+        ],
+        "returnType": "React.ReactNode",
+        "type": "function",
+      },
+      "name": "customAbsoluteRangeControl",
+      "optional": true,
+      "type": "DateRangePickerProps.AbsoluteRangeControl",
     },
     Object {
       "defaultValue": "false",
@@ -5902,6 +6008,9 @@ This property is ignored if you use a predefined icon or if you set your custom 
           "angle-up",
           "angle-down",
           "arrow-left",
+          "audio-full",
+          "audio-half",
+          "audio-off",
           "bug",
           "call",
           "calendar",
@@ -5915,6 +6024,7 @@ This property is ignored if you use a predefined icon or if you set your custom 
           "contact",
           "close",
           "copy",
+          "delete-marker",
           "download",
           "edit",
           "ellipsis",
@@ -5924,19 +6034,30 @@ This property is ignored if you use a predefined icon or if you set your custom 
           "file-open",
           "file",
           "filter",
+          "flag",
           "folder-open",
           "folder",
+          "group-active",
+          "group",
           "heart",
+          "insert-row",
           "key",
+          "keyboard",
           "lock-private",
           "menu",
           "microphone",
+          "microphone-off",
+          "multiscreen",
           "notification",
           "redo",
           "refresh",
+          "remove",
+          "script",
           "search",
+          "security",
           "settings",
           "share",
+          "shrink",
           "status-in-progress",
           "status-info",
           "status-negative",
@@ -5944,17 +6065,29 @@ This property is ignored if you use a predefined icon or if you set your custom 
           "status-positive",
           "status-stopped",
           "status-warning",
+          "suggestions",
+          "thumbs-down-filled",
+          "thumbs-down",
+          "thumbs-up-filled",
+          "thumbs-up",
+          "ticket",
           "treeview-collapse",
           "treeview-expand",
           "undo",
           "unlocked",
+          "upload-download",
           "upload",
+          "user-profile-active",
           "user-profile",
+          "video-off",
+          "video-on",
+          "video-unavailable",
           "view-full",
           "view-horizontal",
           "view-vertical",
           "zoom-in",
           "zoom-out",
+          "zoom-to-fit",
         ],
       },
       "name": "name",
@@ -7530,6 +7663,12 @@ To use it correctly, define an ID for the element you want to use as label and s
       "type": "boolean",
     },
     Object {
+      "description": "Automatically focuses the trigger when component is mounted.",
+      "name": "autoFocus",
+      "optional": true,
+      "type": "boolean",
+    },
+    Object {
       "description": "Adds the specified classes to the root element of the component.",
       "name": "className",
       "optional": true,
@@ -7600,7 +7739,7 @@ in a slight, visible lag when scrolling complex pages.",
 * \`manual\` - You will set up \`onChange\` or \`onLoadItems\` event listeners and filter options on your side or request
 them from server.
 By default the component will filter the provided \`options\` based on the value of the filtering input field.
-Only options that have a \`value\` or \`label\` that contains the input value as a substring
+Only options that have a \`value\`, \`label\`, \`description\` or \`labelTag\` that contains the input value as a substring
 are displayed in the list of options.
 
 If you set this property to \`manual\`, this default filtering mechanism is disabled and all provided \`options\` are
@@ -8798,6 +8937,21 @@ in a slight, visible lag when scrolling complex pages.",
       "description": "An array of possible values of the individual \`filteringProperties\`. Each element has the following properties:
 * \`propertyKey\` [string]: The key of the corresponding filtering property in the \`filteringProperties\` array.
 * \`value\` [string]: The value that will be used as a suggestion when creating or modifying a filtering token.
+* \`label\` [string]: Optional suggestion label to be matched instead of the value.
+
+Filtering options that require labels can only use \`=\` and \`!=\` operators. The token value must be labelled separately, for example:
+\`\`\`
+const filteringProperty = {
+  key: 'state',
+  propertyLabel: 'State',
+  operators: ['=', '!='].map(operator => ({ operator, format: getStateLabel }))
+}
+const filteringOptions = [
+  { propertyKey: 'state', value: 'STOPPED', label: getStateLabel('STOPPED') },
+  { propertyKey: 'state', value: 'STOPPING', label: getStateLabel('STOPPING') },
+  { propertyKey: 'state', value: 'RUNNING', label: getStateLabel('RUNNING') },
+]
+\`\`\`
 ",
       "name": "filteringOptions",
       "optional": true,
@@ -8989,6 +9143,11 @@ operations are communicated to the user in another way.",
           },
           Object {
             "name": "tokenLimitShowMore",
+            "optional": true,
+            "type": "string",
+          },
+          Object {
+            "name": "tokenOperatorAriaLabel",
             "optional": true,
             "type": "string",
           },
@@ -9895,6 +10054,12 @@ To use it correctly, define an ID for the element you want to use as label and s
       "type": "boolean",
     },
     Object {
+      "description": "Automatically focuses the trigger when component is mounted.",
+      "name": "autoFocus",
+      "optional": true,
+      "type": "boolean",
+    },
+    Object {
       "description": "Adds the specified classes to the root element of the component.",
       "name": "className",
       "optional": true,
@@ -9948,7 +10113,7 @@ in a slight, visible lag when scrolling complex pages.",
 * \`manual\` - You will set up \`onChange\` or \`onLoadItems\` event listeners and filter options on your side or request
 them from server.
 By default the component will filter the provided \`options\` based on the value of the filtering input field.
-Only options that have a \`value\` or \`label\` that contains the input value as a substring
+Only options that have a \`value\`, \`label\`, \`description\` or \`labelTag\` that contains the input value as a substring
 are displayed in the list of options.
 
 If you set this property to \`manual\`, this default filtering mechanism is disabled and all provided \`options\` are
@@ -10918,6 +11083,14 @@ add a meaningful description to the whole selection.
       "type": "ReadonlyArray<TableProps.ColumnDefinition<T>>",
     },
     Object {
+      "description": " Use this property to inform screen readers which range of items is currently displayed in the table.
+ It specifies the index (1-based) of the first item in the table.
+ If the table has no pagination, leave this property undefined.",
+      "name": "firstIndex",
+      "optional": true,
+      "type": "number",
+    },
+    Object {
       "description": "Adds the specified ID to the root element of the component.",
       "name": "id",
       "optional": true,
@@ -10959,6 +11132,13 @@ by the \`cell\` property of each column definition in the \`columnDefinitions\` 
       "name": "loadingText",
       "optional": true,
       "type": "string",
+    },
+    Object {
+      "description": "Use this function to announce page changes to screen reader users.
+Requires the properties firstIndex and totalItemsCount to be set correctly.",
+      "name": "renderAriaLive",
+      "optional": true,
+      "type": "(data: TableProps.LiveAnnouncement) => string",
     },
     Object {
       "description": "Specifies if columns can be resized. If set to \`true\`, users can resize the columns in the table.",
@@ -11033,6 +11213,20 @@ to prevent the user from sorting before items are fully loaded.",
       "description": "Specifies a vertical offset (in pixels) for the sticky header. For example, use this if you
 need to position the sticky header below other fixed position elements on the page.",
       "name": "stickyHeaderVerticalOffset",
+      "optional": true,
+      "type": "number",
+    },
+    Object {
+      "description": "Specifies if table rows alternate being shaded and unshaded. If set to \`true\`, every other row will be shaded.",
+      "name": "stripedRows",
+      "optional": true,
+      "type": "boolean",
+    },
+    Object {
+      "description": "Use this property to inform screen readers how many items there are in a table.
+It specifies the total count of all items in a table.
+If there is an unknown total of items in a table, leave this property undefined.",
+      "name": "totalItemsCount",
       "optional": true,
       "type": "number",
     },
@@ -11197,6 +11391,28 @@ Don't use \`ariaLabel\` and \`ariaLabelledby\` at the same time.",
       "name": "disableContentPaddings",
       "optional": true,
       "type": "boolean",
+    },
+    Object {
+      "description": "An object containing all the necessary localized strings required by the component.",
+      "inlineType": Object {
+        "name": "TabsProps.I18nStrings",
+        "properties": Array [
+          Object {
+            "name": "scrollLeftAriaLabel",
+            "optional": false,
+            "type": "string",
+          },
+          Object {
+            "name": "scrollRightAriaLabel",
+            "optional": false,
+            "type": "string",
+          },
+        ],
+        "type": "object",
+      },
+      "name": "i18nStrings",
+      "optional": true,
+      "type": "TabsProps.I18nStrings",
     },
     Object {
       "description": "Adds the specified ID to the root element of the component.",
@@ -12751,9 +12967,19 @@ Object {
             "type": "string",
           },
           Object {
+            "name": "labelLearnMoreLink",
+            "optional": true,
+            "type": "string",
+          },
+          Object {
             "name": "labelTotalSteps",
             "optional": false,
             "type": "(totalStepCount: number) => string",
+          },
+          Object {
+            "name": "labelTutorialListDownloadLink",
+            "optional": true,
+            "type": "string",
           },
           Object {
             "name": "labelsTaskStatus",

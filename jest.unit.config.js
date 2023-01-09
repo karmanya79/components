@@ -9,7 +9,7 @@ module.exports = merge({}, tsPreset, cloudscapePreset, {
   verbose: true,
   testEnvironment: 'jsdom',
   reporters: ['default', 'github-actions'],
-  collectCoverage: true,
+  collectCoverage: process.env.CI === 'true',
   coveragePathIgnorePatterns: [
     '__tests__',
     '__integ__',
@@ -20,7 +20,7 @@ module.exports = merge({}, tsPreset, cloudscapePreset, {
     'styles.selectors.js$',
     'icons.js$',
     'environment.js$',
-    'internal/vendor$',
+    '/internal\\/vendor/',
     '<rootDir>/pages',
   ],
   globals: {
@@ -36,4 +36,5 @@ module.exports = merge({}, tsPreset, cloudscapePreset, {
   },
   setupFilesAfterEnv: [path.join(__dirname, 'build-tools', 'jest', 'setup.js')],
   testRegex: '(/__tests__/.*(\\.|/)test)\\.[jt]sx?$',
+  moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx', 'json', 'd.ts'],
 });

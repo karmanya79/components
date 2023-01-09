@@ -20,6 +20,7 @@ export type ColorPaletteTokenName =
   | 'colorGreen700'
   | 'colorGreen900'
   | 'colorGrey100'
+  | 'colorGrey125'
   | 'colorGrey150'
   | 'colorGrey200'
   | 'colorGrey300'
@@ -221,6 +222,7 @@ export type ColorsTokenName =
   | 'colorBackgroundButtonPrimaryDisabled'
   | 'colorBackgroundButtonPrimaryHover'
   | 'colorBackgroundCalendarToday'
+  | 'colorBackgroundCellShaded'
   | 'colorBackgroundCodeEditorGutterActiveLineDefault'
   | 'colorBackgroundCodeEditorGutterActiveLineError'
   | 'colorBackgroundCodeEditorGutterDefault'
@@ -458,6 +460,8 @@ export type TypographyTokenName =
   | 'fontLinkPrimaryWeight'
   | 'fontPanelHeaderLineHeight'
   | 'fontPanelHeaderSize'
+  | 'fontSmoothingWebkit'
+  | 'fontSmoothingMozOsx'
   | 'fontTabsDisabledWeight'
   | 'fontTabsLineHeight'
   | 'fontTabsSize'
@@ -548,6 +552,7 @@ export type SizesTokenName =
   | 'sizeIconLarge'
   | 'sizeIconMedium'
   | 'sizeIconNormal'
+  | 'sizeTableSelectionHorizontal'
   | 'sizeVerticalInput'
   | 'sizeVerticalPanelIconOffset';
 export type SpacingTokenName =

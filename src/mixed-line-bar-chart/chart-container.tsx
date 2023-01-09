@@ -17,7 +17,7 @@ import HighlightedPoint from '../internal/components/cartesian-chart/highlighted
 import VerticalMarker from '../internal/components/cartesian-chart/vertical-marker';
 import { ChartScale, NumericChartScale } from '../internal/components/cartesian-chart/scales';
 import ChartPopover from './chart-popover';
-import { ChartDataTypes, InternalChartSeries, MixedLineBarChartProps, ScaleType } from './interfaces';
+import { ChartDataTypes, InternalChartSeries, MixedLineBarChartProps, ScaleType, VerticalMarkerX } from './interfaces';
 import { computeDomainX, computeDomainY } from './domain';
 import { isXThreshold } from './utils';
 import makeScaledSeries, { ScaledPoint } from './make-scaled-series';
@@ -68,7 +68,6 @@ export interface ChartContainerProps<T extends ChartDataTypes> {
   setHighlightedPoint: (point: ScaledPoint<T> | null) => void;
   highlightedGroupIndex: number | null;
   setHighlightedGroupIndex: (groupIndex: number | null) => void;
-  legendSeries: null | MixedLineBarChartProps.ChartSeries<T>;
 
   ariaLabel: MixedLineBarChartProps<T>['ariaLabel'];
   ariaLabelledby: MixedLineBarChartProps<T>['ariaLabelledby'];
@@ -88,7 +87,6 @@ export default function ChartContainer<T extends ChartDataTypes>({
   setHighlightedPoint,
   highlightedGroupIndex,
   setHighlightedGroupIndex,
-  legendSeries,
   detailPopoverSize = 'medium',
   stackedBars = false,
   horizontalBars = false,
@@ -111,10 +109,12 @@ export default function ChartContainer<T extends ChartDataTypes>({
 
   const [leftLabelsWidth, setLeftLabelsWidth] = useState(0);
   const [bottomLabelsHeight, setBottomLabelsHeight] = useState(0);
+  const [verticalMarkerX, setVerticalMarkerX] = useState<VerticalMarkerX<T> | null>(null);
   const [containerWidth, containerMeasureRef] = useContainerWidth(500);
   const plotWidth = containerWidth ? containerWidth - leftLabelsWidth - LEFT_LABELS_MARGIN : 500;
   const containerRefObject = useRef(null);
   const containerRef = useMergeRefs(containerMeasureRef, containerRefObject);
+  const popoverRef = useRef<HTMLElement | null>(null);
 
   const isRefresh = useVisualRefresh();
 
@@ -178,16 +178,6 @@ export default function ChartContainer<T extends ChartDataTypes>({
     }
   }, [isPopoverPinned]);
 
-  // Highlighted point and highlighted series must be in sync.
-  // TODO: refactor the code so that it is not possible to make series and point highlight out of sync.
-  const highlightPoint = useCallback(
-    (point: ScaledPoint<T> | null) => {
-      setHighlightedGroupIndex(null);
-      setHighlightedPoint(point);
-    },
-    [setHighlightedPoint, setHighlightedGroupIndex]
-  );
-
   const highlightSeries = useCallback(
     (series: MixedLineBarChartProps.ChartSeries<T> | null) => {
       if (series !== highlightedSeries) {
@@ -197,6 +187,39 @@ export default function ChartContainer<T extends ChartDataTypes>({
     [highlightedSeries, onHighlightChange]
   );
 
+  const highlightPoint = useCallback(
+    (point: ScaledPoint<T> | null) => {
+      setHighlightedGroupIndex(null);
+      setHighlightedPoint(point);
+      if (point) {
+        highlightSeries(point.series);
+        setVerticalMarkerX({
+          scaledX: point.x,
+          label: point.datum?.x ?? null,
+        });
+      }
+    },
+    [setHighlightedGroupIndex, setHighlightedPoint, highlightSeries]
+  );
+
+  const clearAllHighlights = useCallback(() => {
+    setHighlightedPoint(null);
+    highlightSeries(null);
+    setHighlightedGroupIndex(null);
+  }, [highlightSeries, setHighlightedGroupIndex, setHighlightedPoint]);
+
+  // Highlight all points at a given X in a line chart
+  const highlightX = useCallback(
+    (marker: VerticalMarkerX<T> | null) => {
+      if (marker) {
+        clearAllHighlights();
+      }
+      setVerticalMarkerX(marker);
+    },
+    [clearAllHighlights]
+  );
+
+  // Highlight all points and bars at a given X index in a mixed line and bar chart
   const highlightGroup = useCallback(
     (groupIndex: number) => {
       highlightSeries(null);
@@ -207,11 +230,9 @@ export default function ChartContainer<T extends ChartDataTypes>({
   );
 
   const clearHighlightedSeries = useCallback(() => {
-    highlightSeries(null);
-    setHighlightedGroupIndex(null);
-    setHighlightedPoint(null);
+    clearAllHighlights();
     dismissPopover();
-  }, [dismissPopover, highlightSeries, setHighlightedGroupIndex, setHighlightedPoint]);
+  }, [dismissPopover, clearAllHighlights]);
 
   const { isGroupNavigation, ...handlers } = useNavigation({
     series,
@@ -223,25 +244,27 @@ export default function ChartContainer<T extends ChartDataTypes>({
     highlightedPoint,
     highlightedGroupIndex,
     highlightedSeries,
-    legendSeries,
     isHandlersDisabled,
     pinPopover,
     highlightSeries,
     highlightGroup,
     highlightPoint,
+    highlightX,
     clearHighlightedSeries,
+    verticalMarkerX,
   });
 
-  const { onSVGMouseMove, onSVGMouseOut, verticalMarkerLeft } = useMouseHover<T>({
+  const { onSVGMouseMove, onSVGMouseOut, onPopoverLeave } = useMouseHover<T>({
     scaledSeries,
     barGroups,
     plotRef,
-    highlightSeries,
+    popoverRef,
     highlightPoint,
     highlightGroup,
     clearHighlightedSeries,
     isGroupNavigation,
     isHandlersDisabled,
+    highlightX,
   });
 
   // There are multiple ways to indicate what X is selected.
@@ -250,18 +273,27 @@ export default function ChartContainer<T extends ChartDataTypes>({
     if (highlightedGroupIndex !== null) {
       return barGroups[highlightedGroupIndex].x;
     }
-    if (verticalMarkerLeft !== null) {
-      for (const series of scaledSeries) {
-        if (series.x === verticalMarkerLeft) {
-          return series.datum?.x ?? null;
-        }
+    if (verticalMarkerX !== null) {
+      return verticalMarkerX.label;
+    }
+    return highlightedPoint?.datum?.x ?? null;
+  }, [highlightedPoint, verticalMarkerX, highlightedGroupIndex, barGroups]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        dismissPopover();
       }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [dismissPopover]);
+
+  useLayoutEffect(() => {
+    if (highlightedX !== null || highlightedPoint !== null) {
+      showPopover();
     }
-    if (highlightedPoint !== null) {
-      return highlightedPoint?.datum?.x ?? null;
-    }
-    return null;
-  }, [highlightedPoint, verticalMarkerLeft, highlightedGroupIndex, scaledSeries, barGroups]);
+  }, [highlightedX, highlightedPoint, showPopover]);
 
   const onPopoverDismiss = (outsideClick?: boolean) => {
     dismissPopover();
@@ -269,20 +301,18 @@ export default function ChartContainer<T extends ChartDataTypes>({
     if (!outsideClick) {
       // The delay is needed to bypass focus events caused by click or keypress needed to unpin the popover.
       setTimeout(() => {
-        if (highlightedPoint || highlightedGroupIndex !== null) {
+        const isSomeInnerElementFocused = highlightedPoint || highlightedGroupIndex !== null || verticalMarkerX;
+        if (isSomeInnerElementFocused) {
           plotRef.current?.focusApplication();
         } else {
           plotRef.current?.focusPlot();
         }
       }, 0);
+    } else {
+      clearAllHighlights();
+      setVerticalMarkerX(null);
     }
   };
-
-  useLayoutEffect(() => {
-    if (highlightedX !== null) {
-      showPopover();
-    }
-  }, [highlightedX, showPopover]);
 
   const onSVGMouseDown = (e: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
     if (isPopoverOpen) {
@@ -315,6 +345,7 @@ export default function ChartContainer<T extends ChartDataTypes>({
       !nodeContains(containerRefObject.current, blurTarget)
     ) {
       setHighlightedPoint(null);
+      setVerticalMarkerX(null);
       if (!plotContainerRef?.current?.contains(blurTarget)) {
         clearHighlightedSeries();
       }
@@ -330,8 +361,8 @@ export default function ChartContainer<T extends ChartDataTypes>({
   const xOffset = xScale.isCategorical() ? Math.max(0, xScale.d3Scale.bandwidth() - 1) / 2 : 0;
 
   let verticalLineX: number | null = null;
-  if (verticalMarkerLeft !== null) {
-    verticalLineX = verticalMarkerLeft;
+  if (verticalMarkerX !== null) {
+    verticalLineX = verticalMarkerX.scaledX;
   } else if (isGroupNavigation && highlightedGroupIndex !== null) {
     const x = xScale.d3Scale(barGroups[highlightedGroupIndex].x as any) ?? null;
     if (x !== null) {
@@ -367,7 +398,7 @@ export default function ChartContainer<T extends ChartDataTypes>({
     [scaledSeries, verticalLineX, horizontalBars]
   );
 
-  const popoverTrackRef = isGroupNavigation
+  const highlightedElementRef = isGroupNavigation
     ? highlightedGroupRef
     : highlightedPoint
     ? highlightedPointRef
@@ -402,6 +433,8 @@ export default function ChartContainer<T extends ChartDataTypes>({
   const activeLiveRegion =
     activeAriaLabel && !highlightedPoint && highlightedGroupIndex === null ? activeAriaLabel : '';
 
+  const isLineXKeyboardFocused = isPlotFocused && !highlightedPoint && verticalMarkerX;
+
   return (
     <div className={styles['chart-container']} ref={containerRef}>
       <AxisLabel axis={y} position="left" title={xy.title[y]} />
@@ -425,9 +458,13 @@ export default function ChartContainer<T extends ChartDataTypes>({
             ariaDescription={ariaDescription}
             ariaRoleDescription={i18nStrings?.chartAriaRoleDescription}
             ariaLiveRegion={activeLiveRegion}
-            activeElementRef={isGroupNavigation ? highlightedGroupRef : highlightedPointRef}
-            activeElementKey={isPlotFocused && (highlightedGroupIndex?.toString() || point?.key)}
-            activeElementFocusOffset={isGroupNavigation ? 0 : 3}
+            activeElementRef={highlightedElementRef}
+            activeElementKey={
+              isPlotFocused &&
+              (highlightedGroupIndex?.toString() ??
+                (isLineXKeyboardFocused ? `point-index-${handlers.xIndex}` : point?.key))
+            }
+            activeElementFocusOffset={isGroupNavigation ? 0 : isLineXKeyboardFocused ? { x: 8, y: 0 } : 3}
             onMouseMove={onSVGMouseMove}
             onMouseOut={onSVGMouseOut}
             onMouseDown={onSVGMouseDown}
@@ -519,14 +556,16 @@ export default function ChartContainer<T extends ChartDataTypes>({
         </div>
 
         <ChartPopover
+          ref={popoverRef}
           containerRef={containerRefObject}
-          trackRef={popoverTrackRef}
+          trackRef={highlightedElementRef}
           isOpen={isPopoverOpen}
           isPinned={isPopoverPinned}
           highlightDetails={highlightDetails}
           onDismiss={onPopoverDismiss}
           size={detailPopoverSize}
           dismissAriaLabel={i18nStrings.detailPopoverDismissAriaLabel}
+          onMouseLeave={onPopoverLeave}
         />
       </div>
     </div>

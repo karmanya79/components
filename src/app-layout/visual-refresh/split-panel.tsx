@@ -1,10 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-import React, { useContext, useRef, useState } from 'react';
+import React, { useContext, useState } from 'react';
 import clsx from 'clsx';
 import { AppLayoutContext } from './context';
 import {
-  SplitPanelContext,
+  SplitPanelContextProvider,
   SplitPanelContextProps,
   SplitPanelLastInteraction,
 } from '../../internal/context/split-panel-context';
@@ -12,7 +12,6 @@ import styles from './styles.css.js';
 import { AppLayoutProps } from '../interfaces';
 import { useEffectOnUpdate } from '../../internal/hooks/use-effect-on-update';
 import { Transition } from '../../internal/components/transition';
-import { useObservedElement } from '../utils/use-observed-element';
 import customCssProps from '../../internal/generated/custom-css-properties';
 
 /**
@@ -28,6 +27,7 @@ function SplitPanel({ children }: React.PropsWithChildren<unknown>) {
     isSplitPanelForcedPosition,
     isSplitPanelOpen,
     setSplitPanelReportedSize,
+    setSplitPanelReportedHeaderHeight,
     splitPanelPosition,
     splitPanelSize,
     headerHeight,
@@ -43,9 +43,6 @@ function SplitPanel({ children }: React.PropsWithChildren<unknown>) {
   );
   useEffectOnUpdate(() => setSplitPanelLastInteraction({ type: 'position' }), [splitPanelPosition]);
 
-  const splitPanelRef = useRef<HTMLDivElement>(null);
-  const splitPanelHeaderRef = useRef<HTMLDivElement>(null);
-
   const context: SplitPanelContextProps = {
     bottomOffset: 0,
     getMaxHeight: () => {
@@ -54,43 +51,44 @@ function SplitPanel({ children }: React.PropsWithChildren<unknown>) {
       return availableHeight < 400 ? availableHeight - 40 : availableHeight - 250;
     },
     getMaxWidth: () => document.documentElement.clientWidth,
-    getHeader: () => splitPanelHeaderRef.current,
     isForcedPosition: isSplitPanelForcedPosition,
     isMobile,
     isOpen: isSplitPanelOpen,
-    isRefresh: true,
     leftOffset: 0,
     onPreferencesChange: handleSplitPanelPreferencesChange,
     onResize: handleSplitPanelResize,
     onToggle: handleSplitPanelClick,
     position: splitPanelPosition,
     reportSize: setSplitPanelReportedSize,
+    reportHeaderHeight: setSplitPanelReportedHeaderHeight,
     rightOffset: 0,
     size: splitPanelSize || 0,
-    splitPanelRef,
-    splitPanelHeaderRef,
     topOffset: 0,
     openButtonAriaLabel,
     setOpenButtonAriaLabel,
     lastInteraction: splitPanelLastInteraction,
   };
 
-  return <SplitPanelContext.Provider value={{ ...context }}>{children}</SplitPanelContext.Provider>;
+  return <SplitPanelContextProvider value={context}>{children}</SplitPanelContextProvider>;
 }
 
 /**
  * This is the render function for the SplitPanel when it is in bottom position.
  * The Split Panel container will be another row entry in the grid definition in
  * the Layout component. The start and finish columns will be variable based
- * on the the presence and state of the Navigation and Tools components.
+ * on the presence and state of the Navigation and Tools components.
  */
 function SplitPanelBottom() {
-  const { disableBodyScroll, isNavigationOpen, isSplitPanelOpen, isToolsOpen, splitPanel, splitPanelReportedSize } =
-    useContext(AppLayoutContext);
-
-  const { position: splitPanelPosition, getHeader } = useContext(SplitPanelContext);
-
-  const headerHeight = useObservedElement(getHeader);
+  const {
+    disableBodyScroll,
+    isNavigationOpen,
+    isSplitPanelOpen,
+    isToolsOpen,
+    splitPanel,
+    splitPanelPosition,
+    splitPanelReportedSize,
+    splitPanelReportedHeaderHeight,
+  } = useContext(AppLayoutContext);
 
   if (!splitPanel) {
     return null;
@@ -110,7 +108,7 @@ function SplitPanelBottom() {
           ref={transitionEventsRef}
           style={{
             [customCssProps.splitPanelReportedSize]: `${splitPanelReportedSize}px`,
-            [customCssProps.splitPanelReportedHeaderSize]: `${headerHeight}px`,
+            [customCssProps.splitPanelReportedHeaderSize]: `${splitPanelReportedHeaderHeight}px`,
           }}
         >
           <SplitPanel></SplitPanel>
@@ -128,10 +126,14 @@ function SplitPanelBottom() {
  * for this position are computed in the Tools component.
  */
 function SplitPanelSide() {
-  const { isSplitPanelOpen, splitPanel, splitPanelMaxWidth, splitPanelMinWidth, splitPanelReportedSize } =
-    useContext(AppLayoutContext);
-
-  const { position: splitPanelPosition } = useContext(SplitPanelContext);
+  const {
+    isSplitPanelOpen,
+    splitPanel,
+    splitPanelPosition,
+    splitPanelMaxWidth,
+    splitPanelMinWidth,
+    splitPanelReportedSize,
+  } = useContext(AppLayoutContext);
 
   if (!splitPanel) {
     return null;

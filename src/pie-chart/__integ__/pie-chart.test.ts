@@ -95,6 +95,19 @@ describe('Segments', () => {
       await expect(page.isDisplayed(highlightedSegmentSelector)).resolves.toBe(false);
     })
   );
+
+  test(
+    'clicking outside of the chart removes all highlights for pinned element',
+    setupTest(async page => {
+      await page.click(pieWrapper.findSegments().get(2).toSelector());
+      await expect(page.getText(pieWrapper.findHighlightedSegmentLabel().toSelector())).resolves.toContain('Chocolate');
+      await page.waitForVisible(detailsPopoverSelector);
+      await expect(page.isDisplayed(detailsDismissSelector)).resolves.toBe(true);
+
+      await page.click('#focus-target');
+      await expect(page.isDisplayed(highlightedSegmentSelector)).resolves.toBe(false);
+    })
+  );
 });
 
 describe('Filter', () => {
@@ -299,8 +312,53 @@ describe('Detail popover', () => {
       await expect(page.isDisplayed(detailsPopoverSelector)).resolves.toBe(false);
     })
   );
+
+  test(
+    'can be dismissed after hovering on the segment by pressing Escape',
+    setupTest(async page => {
+      await page.hoverElement(pieWrapper.findSegments().get(1).toSelector());
+      await page.waitForVisible(detailsPopoverSelector);
+      await page.keys(['Escape']);
+      await expect(page.isDisplayed(detailsPopoverSelector)).resolves.toBe(false);
+    })
+  );
+
+  test(
+    'can be dismissed after navigating to the segment with keyboard by pressing Escape',
+    setupTest(async page => {
+      await page.click('#focus-target');
+      await page.keys(['Tab', 'Tab', 'Enter']);
+      await page.waitForVisible(detailsPopoverSelector);
+      await page.keys(['Escape']);
+      await expect(page.isDisplayed(detailsPopoverSelector)).resolves.toBe(false);
+    })
+  );
+
+  test(
+    'allow mouse to enter popover on hover',
+    setupTest(async page => {
+      await page.hoverElement(pieWrapper.findSegments().get(3).toSelector());
+      await expect(page.getText(detailsPopoverSelector)).resolves.toContain('Apples');
+
+      await page.hoverElement(pieWrapper.findDetailPopover().findHeader().toSelector());
+      await expect(page.getText(detailsPopoverSelector)).resolves.toContain('Apples');
+    })
+  );
 });
 
+test(
+  'highlights the clicked segment when there is a pinned segment',
+  setupTest(async page => {
+    // Show and pin the popover by clicking
+    await page.click(pieWrapper.findSegments().get(2).toSelector());
+    await page.waitForVisible(detailsPopoverSelector);
+    await expect(page.getText(detailsPopoverSelector)).resolves.toContain('Chocolate');
+
+    await page.click(pieWrapper.findSegments().get(3).toSelector());
+    await expect(page.getText(detailsPopoverSelector)).resolves.toContain('Apples');
+    await expect(page.getText(pieWrapper.findHighlightedSegmentLabel().toSelector())).resolves.toBe('Apples');
+  })
+);
 describe('Focus outline', () => {
   const focusOutlineSelector = `.${chartPlotStyles['focus-outline']}`;
 

@@ -7,11 +7,12 @@ import InternalContainer from '../container/internal';
 import { TabsProps } from './interfaces';
 import clsx from 'clsx';
 import styles from './styles.css.js';
-import { TabHeaderBar } from './tab-header-bar';
+import { getTabElementId, TabHeaderBar } from './tab-header-bar';
 import { useControllable } from '../internal/hooks/use-controllable';
 import { applyDisplayName } from '../internal/utils/apply-display-name';
 import useBaseComponent from '../internal/hooks/use-base-component';
 import { checkSafeUrl } from '../internal/utils/check-safe-url';
+import useFocusVisible from '../internal/hooks/focus-visible';
 
 export { TabsProps };
 
@@ -34,6 +35,7 @@ export default function Tabs({
   ariaLabel,
   ariaLabelledby,
   disableContentPaddings = false,
+  i18nStrings,
   ...rest
 }: TabsProps) {
   for (const tab of tabs) {
@@ -50,24 +52,30 @@ export default function Tabs({
 
   const baseProps = getBaseProps(rest);
 
+  const focusVisible = useFocusVisible();
+
   const content = () => {
     const selectedTab = tabs.filter(tab => tab.id === activeTabId)[0];
     const renderContent = (tab: TabsProps.Tab) => {
-      const isContentActive = tab === selectedTab && !selectedTab.disabled && selectedTab.content;
+      const isTabSelected = tab === selectedTab;
 
       const classes = clsx({
         [styles['tabs-content']]: true,
-        [styles['tabs-content-active']]: isContentActive,
+        [styles['tabs-content-active']]: isTabSelected,
       });
 
       const contentAttributes: JSX.IntrinsicElements['div'] = {
+        ...focusVisible,
         className: classes,
         role: 'tabpanel',
         id: `${idNamespace}-${tab.id}-panel`,
         key: `${idNamespace}-${tab.id}-panel`,
+        tabIndex: 0,
+        'aria-labelledby': getTabElementId({ namespace: idNamespace, tabId: tab.id }),
       };
 
-      return <div {...contentAttributes}>{isContentActive && selectedTab.content}</div>;
+      const isContentShown = isTabSelected && !selectedTab.disabled;
+      return <div {...contentAttributes}>{isContentShown && selectedTab.content}</div>;
     };
 
     return (
@@ -96,6 +104,7 @@ export default function Tabs({
         setActiveTabId(changeDetail.activeTabId);
         fireNonCancelableEvent(onChange, changeDetail);
       }}
+      i18nStrings={i18nStrings}
     />
   );
 
@@ -107,7 +116,7 @@ export default function Tabs({
         {...baseProps}
         className={clsx(baseProps.className, styles.root)}
         __internalRootRef={__internalRootRef}
-        disableContentPaddings={disableContentPaddings}
+        disableContentPaddings={true}
       >
         {content()}
       </InternalContainer>

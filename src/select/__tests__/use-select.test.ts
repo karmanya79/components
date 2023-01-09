@@ -86,7 +86,7 @@ describe('useSelect', () => {
 
     test('should return getTriggerProps that configures the trigger', () => {
       const triggerProps = getTriggerProps();
-      expect(Object.keys(triggerProps)).toEqual(['ref', 'onFocus', 'onMouseDown', 'onKeyDown']);
+      expect(Object.keys(triggerProps)).toEqual(['ref', 'onFocus', 'autoFocus', 'onMouseDown', 'onKeyDown']);
       expect(triggerProps.ref).toEqual({ current: null });
     });
 
@@ -238,6 +238,34 @@ describe('useSelect', () => {
     act(() => hook.result.current.getFilterProps().onKeyDown!(createTestEvent(KeyCode.down)));
     act(() => hook.result.current.getFilterProps().onKeyDown!(createTestEvent(KeyCode.enter)));
     expect(updateSelectedOption).not.toHaveBeenCalled();
+  });
+
+  test('select without filter should open and navigate to selected option', () => {
+    const hook = renderHook(useSelect, {
+      initialProps: { ...initialProps, filteringType: 'none', selectedOptions: [{ value: 'child1' }] },
+    });
+    const { getTriggerProps } = hook.result.current;
+    const triggerProps = getTriggerProps();
+    act(() => triggerProps.onKeyDown && triggerProps.onKeyDown(createTestEvent(KeyCode.space)));
+    expect(hook.result.current.isOpen).toBe(true);
+    expect(hook.result.current.highlightedOption).toEqual({
+      type: 'child',
+      option: {
+        label: 'Child 1',
+        value: 'child1',
+      },
+    });
+  });
+
+  test('select with filter should open and NOT navigate to selected option', () => {
+    const hook = renderHook(useSelect, {
+      initialProps: { ...initialProps, selectedOptions: [{ value: 'child1' }] },
+    });
+    const { getTriggerProps } = hook.result.current;
+    const triggerProps = getTriggerProps();
+    act(() => triggerProps.onKeyDown && triggerProps.onKeyDown(createTestEvent(KeyCode.space)));
+    expect(hook.result.current.isOpen).toBe(true);
+    expect(hook.result.current.highlightedOption).toBeFalsy();
   });
 
   describe('calculates if the highlighted option is selected', () => {

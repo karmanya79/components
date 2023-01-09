@@ -4,6 +4,7 @@ import useBrowser from '@cloudscape-design/browser-test-tools/use-browser';
 import { BasePageObject } from '@cloudscape-design/browser-test-tools/page-objects';
 import createWrapper, { BarChartWrapper, MixedLineBarChartWrapper } from '../../../lib/components/test-utils/selectors';
 import chartPlotStyles from '../../../lib/components/internal/components/chart-plot/styles.selectors.js';
+import mixedChartStyles from '../../../lib/components/mixed-line-bar-chart/styles.selectors.js';
 
 const chartWrapper = createWrapper().findMixedLineBarChart('#chart');
 const groupedBarWrapper = new BarChartWrapper('#chart-grouped');
@@ -21,6 +22,8 @@ const highlightedSeriesSelector = (wrapper: MixedLineBarChartWrapper = chartWrap
   wrapper.findHighlightedSeries().toSelector();
 const seriesSVGSelector = (wrapper: MixedLineBarChartWrapper = chartWrapper) =>
   wrapper.find(`.${chartPlotStyles.root}`).toSelector();
+const dimmedElementsSelector = (wrapper: MixedLineBarChartWrapper = chartWrapper) =>
+  wrapper.findAll(`.${mixedChartStyles['series--dimmed']}`).toSelector();
 const filterWrapper = chartWrapper.findDefaultFilter();
 const legendWrapper = chartWrapper.findLegend();
 
@@ -256,6 +259,19 @@ describe('Series', () => {
       await expect(page.getText(popoverContentSelector())).resolves.toContain('Threshold\n420');
     })
   );
+
+  test(
+    'clicking outside of the chart removes all highlights for pinned element',
+    setupTest('#/light/bar-chart/test', async page => {
+      // Click on it to reveal the dismiss button
+      await page.hoverElement(chartWrapper.findBarGroups().get(3).toSelector());
+      await page.click(chartWrapper.toSelector());
+      await expect(page.isDisplayed(dimmedElementsSelector())).resolves.toBe(true);
+
+      await page.click('#focus-target');
+      await expect(page.isDisplayed(dimmedElementsSelector())).resolves.toBe(false);
+    })
+  );
 });
 
 describe('Details popover', () => {
@@ -303,6 +319,9 @@ describe('Details popover', () => {
       await expect(page.getText(popoverContentSelector())).resolves.toContain('Calories\n77');
       await expect(page.getText(popoverContentSelector())).resolves.toContain('Threshold\n420');
 
+      // remove hover over the first element to avoid hovering over a popover
+      await page.hoverElement('body');
+
       // Hover over second group
       await page.hoverElement(chartWrapper.findBarGroups().get(2).toSelector());
       await expect(page.getText(popoverHeaderSelector())).resolves.toContain('Chocolate');
@@ -337,10 +356,39 @@ describe('Details popover', () => {
   );
 
   test(
+    'can be hidden after hover by pressing Escape',
+    setupTest('#/light/mixed-line-bar-chart/test', async page => {
+      // Hover over first group
+      await page.hoverElement(chartWrapper.findBarGroups().get(1).toSelector());
+      await expect(page.getText(popoverHeaderSelector())).resolves.toContain('Potatoes');
+
+      // Pressing escape should hide the popover
+      await page.keys(['Escape']);
+      await expect(page.isDisplayed(popoverDismissSelector())).resolves.toBe(false);
+      await expect(page.isDisplayed(popoverHeaderSelector())).resolves.toBe(false);
+    })
+  );
+
+  test(
+    'can be hidden after keyboard navigation by pressing Escape',
+    setupTest('#/light/bar-chart/test', async page => {
+      // Navigate first group in the first chart
+      await page.click('#focus-target');
+      await page.keys(['Tab', 'Tab', 'ArrowRight']);
+      await expect(page.getText(popoverHeaderSelector())).resolves.toContain('Potatoes');
+
+      // Pressing Escape should close the popover
+      await page.keys(['Escape']);
+      await expect(page.isDisplayed(popoverHeaderSelector())).resolves.toBe(false);
+      await expect(page.isDisplayed(popoverDismissSelector())).resolves.toBe(false);
+    })
+  );
+
+  test(
     'can be pinned by clicking on chart background and dismissed by clicking outside chart area in line chart',
     setupTest('#/light/line-chart/test', async page => {
       // Hovers to open popover
-      await page.hoverElement(chartWrapper.findSeries().toSelector());
+      await page.hoverElement(chartWrapper.findChart().toSelector());
       // Clicks background to pin
       await page.click(chartWrapper.findChart().toSelector());
       // Pinned popover
@@ -377,6 +425,18 @@ describe('Details popover', () => {
       await page.waitForAssertion(() =>
         expect(page.isFocused(chartWrapper.findApplication().toSelector())).resolves.toBe(true)
       );
+    })
+  );
+
+  test(
+    'Allow mouse to enter popover when a group is hovering over a point',
+    setupTest('#/light/mixed-line-bar-chart/test', async page => {
+      // Hover over first group
+      await page.hoverElement(chartWrapper.findBarGroups().get(1).toSelector());
+      await expect(page.getText(popoverHeaderSelector())).resolves.toContain('Potatoes');
+
+      await page.hoverElement(chartWrapper.findDetailPopover().findHeader().toSelector());
+      await expect(page.getText(popoverHeaderSelector())).resolves.toContain('Potatoes');
     })
   );
 });

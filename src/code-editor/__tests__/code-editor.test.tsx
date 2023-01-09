@@ -14,6 +14,7 @@ import {
 import { ElementWrapper } from '../../../lib/components/test-utils/dom';
 import styles from '../../../lib/components/code-editor/styles.css.js';
 import { warnOnce } from '../../../lib/components/internal/logging';
+import liveRegionStyles from '../../../lib/components/internal/components/live-region/styles.css.js';
 
 jest.mock('../../../lib/components/internal/logging', () => ({
   warnOnce: jest.fn(),
@@ -98,6 +99,46 @@ describe('Code editor component', () => {
   it('uses language label', () => {
     const { wrapper } = renderCodeEditor();
     expect(wrapper.findStatusBar()!.getElement()).toHaveTextContent('JavaScript');
+  });
+
+  it('uses custom language label over the default label', () => {
+    const { wrapper } = renderCodeEditor({ languageLabel: 'PartiQL' });
+    expect(wrapper.findStatusBar()!.getElement()).toHaveTextContent('PartiQL');
+  });
+
+  it('allows providing a custom language', () => {
+    renderCodeEditor({ language: 'partiql' });
+    expect(editorMock.session.setMode).toHaveBeenCalledWith('ace/mode/partiql');
+  });
+
+  it('uses custom language with custom label', () => {
+    const { wrapper } = renderCodeEditor({ languageLabel: 'PartiQL', language: 'partiql' });
+    expect(editorMock.session.setMode).toHaveBeenCalledWith('ace/mode/partiql');
+    expect(wrapper.findStatusBar()!.getElement()).toHaveTextContent('PartiQL');
+  });
+
+  it('falls back to language name if a custom language is used without languageLabel', () => {
+    const { wrapper } = renderCodeEditor({ language: 'partiql' });
+    expect(editorMock.session.setMode).not.toHaveBeenCalledWith('ace/mode/javascript');
+    expect(editorMock.session.setMode).toHaveBeenCalledWith('ace/mode/partiql');
+    expect(wrapper.findStatusBar()!.getElement()).toHaveTextContent('partiql');
+  });
+
+  it("uses custom label even if a language isn't provided", () => {
+    const { wrapper } = renderCodeEditor({ language: undefined, languageLabel: 'PartiQL' });
+    expect(editorMock.session.setMode).toHaveBeenCalledWith('ace/mode/undefined');
+    expect(wrapper.findStatusBar()!.getElement()).toHaveTextContent('PartiQL');
+  });
+
+  /**
+   * Undefined language should run the component anyway even when bypassing language requirements,
+   * When that happens, Ace handles the missing language error
+   * renderCodeEditor uses Partial<CodeEditorProps>, no casting needed here
+   */
+  it('allows unidentified language without breaking', () => {
+    const { wrapper } = renderCodeEditor({ language: undefined });
+    expect(editorMock.session.setMode).toHaveBeenCalledWith('ace/mode/undefined');
+    expect(wrapper.findStatusBar()!.getElement()).not.toHaveTextContent('undefined');
   });
 
   it('changes value', () => {
@@ -267,6 +308,17 @@ describe('Code editor component', () => {
 
     expect(item.getElement().textContent).toEqual(expect.stringContaining('error text'));
     expect(item.getElement().textContent).toEqual(expect.stringContaining('Ln 1, Col 1'));
+  });
+
+  it('sends annotation text to LiveRegion Component for a11y announcement', () => {
+    editorMock.session.getAnnotations.mockReturnValueOnce([{ type: 'error', row: 0, column: 0, text: 'error text' }]);
+    const { wrapper } = renderCodeEditor();
+    act(() => emulateAceAnnotationEvent!());
+
+    const liveRegion = wrapper.findStatusBar()?.find(`.${liveRegionStyles.root}`)?.getElement().innerHTML;
+
+    expect(liveRegion).toContain(defaultProps.i18nStrings.errorsTab);
+    expect(liveRegion).toContain(defaultProps.i18nStrings.warningsTab);
   });
 
   it('moves cursor to annotation when clicked', () => {

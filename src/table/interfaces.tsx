@@ -125,6 +125,11 @@ export interface TableProps<T = any> extends BaseComponentProps {
   wrapLines?: boolean;
 
   /**
+   * Specifies if table rows alternate being shaded and unshaded. If set to `true`, every other row will be shaded.
+   */
+  stripedRows?: boolean;
+
+  /**
    * Specifies if columns can be resized. If set to `true`, users can resize the columns in the table.
    */
   resizableColumns?: boolean;
@@ -228,6 +233,22 @@ export interface TableProps<T = any> extends BaseComponentProps {
    * @visualrefresh `embedded`, `stacked`, and `full-page` variants
    */
   variant?: TableProps.Variant;
+
+  /**
+   * Use this property to inform screen readers how many items there are in a table.
+   * It specifies the total count of all items in a table.
+   * If there is an unknown total of items in a table, leave this property undefined.   */
+  totalItemsCount?: number;
+  /**
+   *  Use this property to inform screen readers which range of items is currently displayed in the table.
+   *  It specifies the index (1-based) of the first item in the table.
+   *  If the table has no pagination, leave this property undefined.   */
+  firstIndex?: number;
+  /**
+   * Use this function to announce page changes to screen reader users.
+   * Requires the properties firstIndex and totalItemsCount to be set correctly.
+   */
+  renderAriaLive?: (data: TableProps.LiveAnnouncement) => string;
 }
 
 export namespace TableProps {
@@ -284,6 +305,12 @@ export namespace TableProps {
 
   export interface ColumnWidthsChangeDetail {
     widths: ReadonlyArray<number>;
+  }
+
+  export interface LiveAnnouncement {
+    totalItemsCount?: number;
+    firstIndex: number;
+    lastIndex: number;
   }
 
   export interface Ref {

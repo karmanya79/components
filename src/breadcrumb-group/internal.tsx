@@ -15,7 +15,7 @@ import { getBaseProps } from '../internal/base-component';
 import { useMobile } from '../internal/hooks/use-mobile';
 import { InternalBaseComponentProps } from '../internal/hooks/use-base-component';
 import { checkSafeUrl } from '../internal/utils/check-safe-url';
-import { SomeRequired } from '../internal/types.js';
+import { SomeRequired } from '../internal/types';
 
 const DropdownTrigger = (
   clickHandler: () => void,
@@ -101,6 +101,7 @@ export default function InternalBreadcrumbGroup<T extends BreadcrumbGroupProps.I
           onFollow={onFollow}
           isCompressed={isMobile}
           isLast={index === items.length - 1}
+          isDisplayed={!isMobile || index === items.length - 1 || index === 0}
         />
       </li>
     );

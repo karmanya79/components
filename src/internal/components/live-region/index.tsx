@@ -5,7 +5,7 @@
 
 import clsx from 'clsx';
 import React, { memo, useEffect, useRef } from 'react';
-import ScreenreaderOnly, { ScreenreaderOnlyProps } from '../screenreader-only/index.js';
+import ScreenreaderOnly, { ScreenreaderOnlyProps } from '../screenreader-only';
 import styles from './styles.css.js';
 
 export interface LiveRegionProps extends ScreenreaderOnlyProps {
@@ -16,38 +16,38 @@ export interface LiveRegionProps extends ScreenreaderOnlyProps {
 }
 
 /**
-  The live region is hidden in the layout, but visible for screen readers.
-  It's purpose it to announce changes e.g. when custom navigation logic is used.
-
-  The way live region works differently in different browsers and screen readers and
-  it is recommended to manually test every new implementation.
-
-  If you notice there are different words being merged together,
-  check if there are text nodes not being wrapped in elements, like:
-  <LiveRegion>
-    {title}
-    <span><Details /></span>
-  </LiveRegion>
-
-  To fix, wrap "title" in an element:
-  <LiveRegion>
-    <span>{title}</span>
-    <span><Details /></span>
-  </LiveRegion>
-
-  Or create a single text node if possible:
-  <LiveRegion>
-    {`${title} ${details}`}
-  </LiveRegion>
-
-  The live region is always atomic, because non-atomic regions can be treated by screen readers
-  differently and produce unexpected results. To imitate non-atomic announcements simply use
-  multiple live regions:
-  <>
-    <LiveRegion>{title}</LiveRegion>
-    <LiveRegion><Details /></LiveRegion>
-  </>
-*/
+ * The live region is hidden in the layout, but visible for screen readers.
+ * It's purpose it to announce changes e.g. when custom navigation logic is used.
+ *
+ * The way live region works differently in different browsers and screen readers and
+ * it is recommended to manually test every new implementation.
+ *
+ * If you notice there are different words being merged together,
+ * check if there are text nodes not being wrapped in elements, like:
+ * <LiveRegion>
+ *   {title}
+ *   <span><Details /></span>
+ * </LiveRegion>
+ *
+ * To fix, wrap "title" in an element:
+ * <LiveRegion>
+ *   <span>{title}</span>
+ *   <span><Details /></span>
+ * </LiveRegion>
+ *
+ * Or create a single text node if possible:
+ * <LiveRegion>
+ *   {`${title} ${details}`}
+ * </LiveRegion>
+ *
+ * The live region is always atomic, because non-atomic regions can be treated by screen readers
+ * differently and produce unexpected results. To imitate non-atomic announcements simply use
+ * multiple live regions:
+ * <>
+ *   <LiveRegion>{title}</LiveRegion>
+ *   <LiveRegion><Details /></LiveRegion>
+ * </>
+ */
 export default memo(LiveRegion);
 
 function LiveRegion({ assertive = false, delay = 10, visible = false, children, ...restProps }: LiveRegionProps) {

@@ -16,8 +16,8 @@ export interface ChartModel<T extends AreaChartProps.DataTypes> {
   getInternalSeries(series: AreaChartProps.Series<T>): ChartModel.InternalSeries<T>;
   computed: ChartModel.ComputedProps<T>;
   handlers: {
-    onSVGMouseMove: (event: React.MouseEvent<SVGElement, MouseEvent>) => void;
-    onSVGMouseOut: (event: React.MouseEvent<SVGElement, MouseEvent>) => void;
+    onSVGMouseMove: (event: React.MouseEvent<SVGElement>) => void;
+    onSVGMouseOut: (event: React.MouseEvent<SVGElement>) => void;
     onSVGMouseDown: (event: React.MouseEvent<SVGSVGElement>) => void;
     onSVGKeyDown: (event: React.KeyboardEvent) => void;
     onSVGFocus: (event: React.FocusEvent<Element>, trigger: 'mouse' | 'keyboard') => void;
@@ -26,12 +26,15 @@ export interface ChartModel<T extends AreaChartProps.DataTypes> {
     onLegendHighlight: (series: null | AreaChartProps.Series<T>) => void;
     onPopoverDismiss: (outsideClick?: boolean) => void;
     onContainerBlur: () => void;
+    onDocumentKeyDown: (event: KeyboardEvent) => void;
+    onPopoverLeave: (event: React.MouseEvent) => void;
   };
   interactions: ReadonlyAsyncStore<ChartModel.InteractionsState<T>>;
   refs: {
     plot: React.RefObject<ChartPlotRef>;
     container: React.RefObject<HTMLDivElement>;
     verticalMarker: React.RefObject<SVGLineElement>;
+    popoverRef: React.RefObject<HTMLElement>;
   };
 }
 

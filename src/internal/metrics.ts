@@ -1,11 +1,18 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-import { THEME, PACKAGE_VERSION } from './environment';
+import { PACKAGE_VERSION } from './environment';
 
 export interface MetricsLogItem {
   source: string;
   action: string;
   version: string;
+}
+
+export interface MetricsV2EventItem {
+  eventType?: string;
+  eventContext?: string;
+  eventDetail?: string | Record<string, string | number | boolean>;
+  eventValue?: string | Record<string, string | number | boolean>;
 }
 
 interface AWSC {
@@ -14,11 +21,21 @@ interface AWSC {
 
 interface MetricsWindow extends Window {
   AWSC?: AWSC;
+  panorama?: any;
 }
 
 declare const AWSUI_METRIC_ORIGIN: string | undefined;
 
 const oneTimeMetrics: Record<string, boolean> = {};
+
+// In case we need to override the theme for VR
+let theme = '';
+function setTheme(newTheme: string) {
+  theme = newTheme;
+}
+
+// react is the only framework we're using
+const framework = 'react';
 
 const buildMetricHash = ({ source, action }: MetricsLogItem): string => {
   return [`src${source}`, `action${action}`].join('_');
@@ -42,7 +59,7 @@ const buildMetricDetail = ({ source, action, version }: MetricsLogItem): string 
   const detailObject = {
     o: metricOrigin,
     s: source,
-    t: THEME,
+    t: theme,
     a: action,
     f: framework,
     v: formatMajorVersionForMetricDetail(version),
@@ -51,7 +68,25 @@ const buildMetricDetail = ({ source, action, version }: MetricsLogItem): string 
 };
 
 const buildMetricName = ({ source, version }: MetricsLogItem): string => {
-  return ['awsui', source, `${formatVersionForMetricName(THEME, version)}`].join('_');
+  return ['awsui', source, `${formatVersionForMetricName(theme, version)}`].join('_');
+};
+
+const findPanorama = (currentWindow?: MetricsWindow): any | undefined => {
+  try {
+    if (typeof currentWindow?.panorama === 'function') {
+      return currentWindow?.panorama;
+    }
+
+    if (!currentWindow || currentWindow.parent === currentWindow) {
+      // When the window has no more parents, it references itself
+      return undefined;
+    }
+
+    return findPanorama(currentWindow.parent);
+  } catch (ex) {
+    // Most likely a cross-origin access error
+    return undefined;
+  }
 };
 
 const findAWSC = (currentWindow?: MetricsWindow): AWSC | undefined => {
@@ -72,15 +107,9 @@ const findAWSC = (currentWindow?: MetricsWindow): AWSC | undefined => {
   }
 };
 
-// react is the default framework we're logging, for angular we need to set it explicitly
-let framework = 'react';
-function setFramework(fwk: string) {
-  framework = fwk;
-}
-
 export const Metrics = {
-  initMetrics(fwk: string) {
-    setFramework(fwk);
+  initMetrics(theme: string) {
+    setTheme(theme);
   },
 
   /**
@@ -88,6 +117,12 @@ export const Metrics = {
    * Does nothing if Console Platform client logging JS is not present in page.
    */
   sendMetric(metricName: string, value: number, detail?: string): void {
+    if (!theme) {
+      // Metrics need to be initialized first (initMetrics)
+      console.error('Metrics need to be initalized first.');
+      return;
+    }
+
     if (!metricName || !/^[a-zA-Z0-9_-]{1,32}$/.test(metricName)) {
       console.error(`Invalid metric name: ${metricName}`);
       return;
@@ -99,6 +134,30 @@ export const Metrics = {
     const AWSC = findAWSC(window);
     if (typeof AWSC === 'object' && typeof AWSC.Clog === 'object' && typeof AWSC.Clog.log === 'function') {
       AWSC.Clog.log(metricName, value, detail);
+    }
+  },
+
+  /**
+   * Calls Console Platform's client v2 logging JS API with provided metric name and detail.
+   * Does nothing if Console Platform client logging JS is not present in page.
+   */
+  sendPanoramaMetric(metric: MetricsV2EventItem): void {
+    if (typeof metric.eventDetail === 'object') {
+      metric.eventDetail = JSON.stringify(metric.eventDetail);
+    }
+    if (metric.eventDetail && metric.eventDetail.length > 200) {
+      console.error(`Detail for metric is too long: ${metric.eventDetail}`);
+      return;
+    }
+    if (typeof metric.eventValue === 'object') {
+      metric.eventValue = JSON.stringify(metric.eventValue);
+    }
+    const panorama = findPanorama(window);
+    if (typeof panorama === 'function') {
+      panorama('trackCustomEvent', {
+        ...metric,
+        timestamp: Date.now(),
+      });
     }
   },
 

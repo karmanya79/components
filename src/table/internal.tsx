@@ -28,7 +28,7 @@ import StickyScrollbar from './sticky-scrollbar';
 import useFocusVisible from '../internal/hooks/focus-visible';
 import { useMergeRefs } from '../internal/hooks/use-merge-refs';
 import { SomeRequired } from '../internal/types';
-import useMouseDownTarget from './use-mouse-down-target';
+import useMouseDownTarget from '../internal/hooks/use-mouse-down-target';
 import { useDynamicOverlap } from '../app-layout/visual-refresh/hooks/use-dynamic-overlap';
 import LiveRegion from '../internal/components/live-region';
 
@@ -64,10 +64,14 @@ const InternalTable = React.forwardRef(
       onRowClick,
       onRowContextMenu,
       wrapLines,
+      stripedRows,
       resizableColumns,
       onColumnWidthsChange,
       variant,
       __internalRootRef,
+      totalItemsCount,
+      firstIndex,
+      renderAriaLive,
       ...rest
     }: InternalTableProps<T>,
     ref: React.Ref<TableProps.Ref>
@@ -122,13 +126,15 @@ const InternalTable = React.forwardRef(
       }
     }
 
-    const isRefresh = useVisualRefresh();
-    const computedVariant = isRefresh
+    const isVisualRefresh = useVisualRefresh();
+    const computedVariant = isVisualRefresh
       ? variant
       : ['embedded', 'full-page'].indexOf(variant) > -1
       ? 'container'
       : variant;
     const hasHeader = !!(header || filter || pagination || preferences);
+    const hasSelection = !!selectionType;
+    const hasFooter = !!footer;
 
     const theadProps: TheadProps = {
       containerWidth,
@@ -153,6 +159,7 @@ const InternalTable = React.forwardRef(
         }
       },
       singleSelectionHeaderAriaLabel: ariaLabels?.selectionGroupLabel,
+      stripedRows,
     };
 
     // Allows keyboard users to scroll horizontally with arrow keys by making the wrapper part of the tab sequence
@@ -172,7 +179,7 @@ const InternalTable = React.forwardRef(
         tableRef={tableRefObject}
         visibleColumnDefinitions={visibleColumnDefinitions}
         resizableColumns={resizableColumns}
-        hasSelection={!!selectionType}
+        hasSelection={hasSelection}
       >
         <InternalContainer
           {...baseProps}
@@ -213,7 +220,6 @@ const InternalTable = React.forwardRef(
           footer={
             footer && (
               <div className={clsx(styles['footer-wrapper'], styles[`variant-${computedVariant}`])}>
-                <hr className={styles.divider} />
                 <div className={styles.footer}>{footer}</div>
               </div>
             )
@@ -225,13 +231,18 @@ const InternalTable = React.forwardRef(
           <div
             ref={wrapperRef}
             className={clsx(styles.wrapper, styles[`variant-${computedVariant}`], {
-              [styles['has-footer']]: !!footer,
+              [styles['has-footer']]: hasFooter,
               [styles['has-header']]: hasHeader,
             })}
             onScroll={handleScroll}
             {...wrapperProps}
             {...focusVisibleProps}
           >
+            {renderAriaLive && firstIndex && (
+              <LiveRegion>
+                <span>{renderAriaLive({ totalItemsCount, firstIndex, lastIndex: firstIndex + items.length })}</span>
+              </LiveRegion>
+            )}
             <table
               ref={tableRef}
               className={clsx(styles.table, resizableColumns && styles['table-layout-fixed'])}
@@ -239,6 +250,7 @@ const InternalTable = React.forwardRef(
               // If we state explicitly, they get it always correctly even with low number of rows.
               role="table"
               aria-label={ariaLabels?.tableLabel}
+              aria-rowcount={totalItemsCount ? totalItemsCount + 1 : -1}
             >
               <Thead
                 ref={theadRef}
@@ -252,7 +264,7 @@ const InternalTable = React.forwardRef(
                   <tr>
                     <td
                       colSpan={selectionType ? visibleColumnDefinitions.length + 1 : visibleColumnDefinitions.length}
-                      className={styles['cell-merged']}
+                      className={clsx(styles['cell-merged'], hasFooter && styles['has-footer'])}
                     >
                       <div
                         className={styles['cell-merged-content']}
@@ -275,6 +287,7 @@ const InternalTable = React.forwardRef(
                   items.map((item, rowIndex) => {
                     const firstVisible = rowIndex === 0;
                     const lastVisible = rowIndex === items.length - 1;
+                    const isEven = rowIndex % 2 === 0;
                     const isSelected = !!selectionType && isItemSelected(item);
                     const isPrevSelected = !!selectionType && !firstVisible && isItemSelected(items[rowIndex - 1]);
                     const isNextSelected = !!selectionType && !lastVisible && isItemSelected(items[rowIndex + 1]);
@@ -293,16 +306,24 @@ const InternalTable = React.forwardRef(
                         {...focusMarkers.item}
                         onClick={onRowClickHandler && onRowClickHandler.bind(null, rowIndex, item)}
                         onContextMenu={onRowContextMenuHandler && onRowContextMenuHandler.bind(null, rowIndex, item)}
+                        aria-rowindex={firstIndex ? firstIndex + rowIndex + 1 : undefined}
                       >
                         {selectionType !== undefined && (
                           <TableBodyCell
-                            className={styles['selection-control']}
+                            className={clsx(
+                              styles['selection-control'],
+                              isVisualRefresh && styles['is-visual-refresh']
+                            )}
                             isFirstRow={firstVisible}
                             isLastRow={lastVisible}
                             isSelected={isSelected}
                             isNextSelected={isNextSelected}
                             isPrevSelected={isPrevSelected}
                             wrapLines={false}
+                            isEvenRow={isEven}
+                            stripedRows={stripedRows}
+                            hasSelection={hasSelection}
+                            hasFooter={hasFooter}
                           >
                             <SelectionControl
                               onFocusDown={moveFocusDown}
@@ -332,6 +353,10 @@ const InternalTable = React.forwardRef(
                             isSelected={isSelected}
                             isNextSelected={isNextSelected}
                             isPrevSelected={isPrevSelected}
+                            stripedRows={stripedRows}
+                            isEvenRow={isEven}
+                            hasSelection={hasSelection}
+                            hasFooter={hasFooter}
                           />
                         ))}
                       </tr>

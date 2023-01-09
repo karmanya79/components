@@ -4,6 +4,8 @@ import React from 'react';
 import { render } from '@testing-library/react';
 import createWrapper, { AttributeEditorWrapper } from '../../../lib/components/test-utils/dom';
 import AttributeEditor, { AttributeEditorProps } from '../../../lib/components/attribute-editor';
+import styles from '../../../lib/components/attribute-editor/styles.css.js';
+import Input from '../../../lib/components/input';
 
 interface Item {
   key: string;
@@ -100,6 +102,16 @@ describe('Attribute Editor', () => {
     test('should render 0 rows when passed empty array', () => {
       const wrapper = renderAttributeEditor({ ...defaultProps, items: [] });
       expect(wrapper.findRows()).toHaveLength(0);
+    });
+    test('should fade in empty state when items were previously visible', () => {
+      const { container, rerender } = render(<AttributeEditor {...defaultProps} />);
+      rerender(<AttributeEditor {...defaultProps} items={[]} />);
+      const wrapper = createWrapper(container).findAttributeEditor()!;
+      expect(wrapper.findEmptySlot()?.getElement()).toHaveClass(styles['empty-appear']);
+    });
+    test('should not fade in empty state when it is initially displayed', () => {
+      const wrapper = renderAttributeEditor({ ...defaultProps, items: [] });
+      expect(wrapper.findEmptySlot()?.getElement()).not.toHaveClass(styles['empty-appear']);
     });
   });
 
@@ -320,6 +332,37 @@ describe('Attribute Editor', () => {
       for (const row of [1, 2, 3]) {
         expect(wrapper.findRow(row)!.findRemoveButton()!.getElement()).not.toHaveFocus();
       }
+    });
+  });
+
+  describe('a11y', () => {
+    test('row has role group and aria-labelledby referring to first control label and content', () => {
+      const wrapper = renderAttributeEditor({
+        ...defaultProps,
+        definition: [
+          {
+            label: 'Key label',
+            info: 'Key info',
+            control: item => <Input value={item.key} />,
+          },
+          {
+            label: 'Value label',
+            info: 'Value info',
+            control: item => <Input value={item.value} />,
+          },
+        ],
+      });
+      const [labelId, inputId] = wrapper
+        .findRow(1)!
+        .find('[role="group"]')!
+        .getElement()
+        .getAttribute('aria-labelledby')!
+        .split(' ');
+      const label =
+        wrapper.getElement().querySelector(`#${labelId}`)!.textContent +
+        ' ' +
+        wrapper.getElement().querySelector(`#${inputId}`)!.getAttribute('value');
+      expect(label).toBe('Key label k1');
     });
   });
 });

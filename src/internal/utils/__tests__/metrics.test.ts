@@ -1,18 +1,13 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 import { Metrics } from '../../metrics';
-jest.mock(
-  '../../environment',
-  () => ({
-    THEME: 'default',
-    PACKAGE_VERSION: '3.0 (HEAD)',
-  }),
-  { virtual: true }
-);
+
+jest.mock('../../environment', () => ({ PACKAGE_VERSION: '3.0 (HEAD)' }), { virtual: true });
 
 declare global {
   interface Window {
     AWSC?: any;
+    panorama?: any;
   }
 }
 
@@ -24,6 +19,15 @@ describe('Client Metrics support', () => {
       },
     };
     jest.spyOn(window.AWSC.Clog, 'log');
+  };
+
+  const initMetrics = () => {
+    Metrics.initMetrics('default');
+  };
+
+  const definePanorama = () => {
+    window.panorama = () => {};
+    jest.spyOn(window, 'panorama');
   };
 
   const checkMetric = (metricName: string, detail: string[]) => {
@@ -41,6 +45,7 @@ describe('Client Metrics support', () => {
 
   beforeEach(() => {
     delete window.AWSC;
+    initMetrics();
   });
 
   afterEach(() => {
@@ -281,13 +286,15 @@ describe('Client Metrics support', () => {
   });
 
   describe('initMetrics', () => {
-    test('sets framework and does not log a metric', () => {
+    afterEach(() => {
+      initMetrics();
+    });
+
+    test('sets theme', () => {
       defineClog();
-      Metrics.initMetrics('DummyFrameWork');
+      Metrics.initMetrics('dummy-theme');
 
-      expect(window.AWSC.Clog.log).toHaveBeenCalledTimes(0);
-
-      // check that the framework is correctly set
+      // check that the theme is correctly set
       Metrics.sendMetricObject(
         {
           source: 'pkg',
@@ -296,7 +303,7 @@ describe('Client Metrics support', () => {
         },
         1
       );
-      checkMetric(`awsui_pkg_d50`, ['main', 'pkg', 'default', 'used', 'DummyFrameWork', '5.0']);
+      checkMetric(`awsui_pkg_d50`, ['main', 'pkg', 'dummy-theme', 'used', 'react', '5.0']);
     });
   });
 
@@ -309,7 +316,7 @@ describe('Client Metrics support', () => {
         'DummyComponentName',
         'default',
         'used',
-        'DummyFrameWork',
+        'react',
         '3.0(HEAD)',
       ]);
     });
@@ -319,7 +326,98 @@ describe('Client Metrics support', () => {
     test('logs the component loaded metric', () => {
       defineClog();
       Metrics.logComponentLoaded();
-      checkMetric(`awsui_components_d30`, ['main', 'components', 'default', 'loaded', 'DummyFrameWork', '3.0(HEAD)']);
+      checkMetric(`awsui_components_d30`, ['main', 'components', 'default', 'loaded', 'react', '3.0(HEAD)']);
+    });
+  });
+
+  describe('sendPanoramaMetric', () => {
+    test('does nothing when panorama is undefined', () => {
+      Metrics.sendPanoramaMetric({}); // only proves no exception thrown
+    });
+
+    describe('when panorama is defined', () => {
+      let consoleSpy: jest.SpyInstance;
+      const metric = {
+        eventContext: 'context',
+        eventDetail: 'detail',
+        eventType: 'type',
+        eventValue: 'value',
+      };
+
+      beforeEach(() => {
+        definePanorama();
+        consoleSpy = jest.spyOn(console, 'error');
+      });
+
+      afterEach(() => {
+        expect(consoleSpy).not.toHaveBeenCalled();
+        jest.clearAllMocks();
+      });
+
+      test('delegates to window.panorama when defined', () => {
+        const mockDateNow = new Date('2022-12-16T00:00:00.00Z').valueOf();
+        jest.spyOn(global.Date, 'now').mockImplementationOnce(() => mockDateNow);
+
+        Metrics.sendPanoramaMetric(metric);
+        expect(window.panorama).toHaveBeenCalledWith('trackCustomEvent', { ...metric, timestamp: mockDateNow });
+      });
+
+      describe('Metric detail validation', () => {
+        test('accepts event detail up to 200 characters', () => {
+          const inputMetric = {
+            ...metric,
+            eventDetail: new Array(201).join('a'),
+          };
+
+          Metrics.sendPanoramaMetric(inputMetric);
+          expect(window.panorama).toHaveBeenCalledWith('trackCustomEvent', expect.objectContaining(inputMetric));
+        });
+
+        test('throws an error when detail is too long', () => {
+          const invalidMetric = {
+            ...metric,
+            eventDetail: new Array(202).join('a'),
+          };
+
+          Metrics.sendPanoramaMetric(invalidMetric);
+          expect(consoleSpy).toHaveBeenCalledWith(`Detail for metric is too long: ${invalidMetric.eventDetail}`);
+          consoleSpy.mockReset();
+        });
+
+        test('accepts event detail as an object', () => {
+          const inputMetric = {
+            ...metric,
+            eventDetail: {
+              name: 'Hello',
+            },
+          };
+
+          const expectedMetric = {
+            ...metric,
+            eventDetail: JSON.stringify(inputMetric.eventDetail),
+          };
+
+          Metrics.sendPanoramaMetric(inputMetric);
+          expect(window.panorama).toHaveBeenCalledWith('trackCustomEvent', expect.objectContaining(expectedMetric));
+        });
+
+        test('accepts event value as an object', () => {
+          const inputMetric = {
+            ...metric,
+            eventValue: {
+              name: 'Hello',
+            },
+          };
+
+          const expectedMetric = {
+            ...metric,
+            eventValue: JSON.stringify(inputMetric.eventValue),
+          };
+
+          Metrics.sendPanoramaMetric(inputMetric);
+          expect(window.panorama).toHaveBeenCalledWith('trackCustomEvent', expect.objectContaining(expectedMetric));
+        });
+      });
     });
   });
 });

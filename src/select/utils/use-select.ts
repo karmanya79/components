@@ -15,12 +15,7 @@ import { OptionsListProps } from '../../internal/components/options-list';
 import { FilterProps } from '../parts/filter';
 import { ItemProps } from '../parts/item';
 import { usePrevious } from '../../internal/hooks/use-previous';
-import {
-  BaseKeyDetail,
-  NonCancelableEventHandler,
-  CancelableEventHandler,
-  fireNonCancelableEvent,
-} from '../../internal/events';
+import { BaseKeyDetail, NonCancelableEventHandler, fireNonCancelableEvent } from '../../internal/events';
 import { useUniqueId } from '../../internal/hooks/use-unique-id';
 
 export type MenuProps = Omit<OptionsListProps, 'children'> & { ref: React.RefObject<HTMLUListElement> };
@@ -45,11 +40,7 @@ export interface SelectTriggerProps {
   onMouseDown?: (event: CustomEvent) => void;
   onKeyDown?: (event: CustomEvent<BaseKeyDetail>) => void;
   onFocus: NonCancelableEventHandler;
-}
-
-export interface RecoveryLinkProps {
-  ref: RefObject<HTMLAnchorElement>;
-  onBlur: CancelableEventHandler<{ relatedTarget: Node | null }>;
+  autoFocus?: boolean;
 }
 
 export function useSelect({
@@ -148,10 +139,11 @@ export function useSelect({
     onBlur: handleBlur,
   });
 
-  const getTriggerProps = (disabled = false) => {
+  const getTriggerProps = (disabled = false, autoFocus = false) => {
     const triggerProps: SelectTriggerProps = {
       ref: triggerRef,
       onFocus: () => closeDropdown(),
+      autoFocus,
     };
     if (!disabled) {
       triggerProps.onMouseDown = (event: CustomEvent) => {
@@ -249,11 +241,12 @@ export function useSelect({
 
   const prevOpen = usePrevious<boolean>(isOpen);
   useEffect(() => {
-    // highlight the first selected option, when opening the Select component
-    if (isOpen && !prevOpen && hasSelectedOption) {
+    // highlight the first selected option, when opening the Select component without filter input
+    // keep the focus in the filter input when opening, so that screenreader can recognize the combobox
+    if (isOpen && !prevOpen && hasSelectedOption && !hasFilter) {
       setHighlightedIndexWithMouse(options.indexOf(__selectedOptions[0]));
     }
-  }, [isOpen, __selectedOptions, hasSelectedOption, setHighlightedIndexWithMouse, options, prevOpen]);
+  }, [isOpen, __selectedOptions, hasSelectedOption, setHighlightedIndexWithMouse, options, prevOpen, hasFilter]);
 
   useEffect(() => {
     if (isOpen) {

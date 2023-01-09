@@ -8,6 +8,21 @@ import styles from '../../../lib/components/tabs/styles.css.js';
 import createWrapper, { TabsWrapper } from '../../../lib/components/test-utils/dom';
 import { KeyCode } from '@cloudscape-design/test-utils-core/dist/utils';
 
+let mockHorizontalOverflow = false;
+jest.mock('../../../lib/components/tabs/scroll-utils', () => {
+  const originalScrollUtilsModule = jest.requireActual('../../../lib/components/tabs/scroll-utils');
+  return {
+    __esModule: true,
+    ...originalScrollUtilsModule,
+    hasHorizontalOverflow: (...args: any) =>
+      mockHorizontalOverflow ? true : originalScrollUtilsModule.hasHorizontalOverflow(...args),
+    hasLeftOverflow: (...args: any) =>
+      mockHorizontalOverflow ? true : originalScrollUtilsModule.hasLeftOverflow(...args),
+    hasRightOverflow: (...args: any) =>
+      mockHorizontalOverflow ? true : originalScrollUtilsModule.hasRightOverflow(...args),
+  };
+});
+
 function renderTabs(element: React.ReactElement) {
   const renderResult = render(element);
   return { ...renderResult, wrapper: wrap(renderResult.container) };
@@ -145,7 +160,7 @@ describe('Tabs', () => {
       const tabs = renderTabs(<Tabs tabs={defaultTabs} activeTabId="third" onChange={() => void 0} />).wrapper;
 
       expect(tabs.findActiveTab()).toBe(null);
-      expect(tabs.findTabContent()).toBe(null);
+      expect(tabs.findTabContent()!.getElement()).toBeEmptyDOMElement();
     });
 
     test('displays active tab content', () => {
@@ -164,7 +179,7 @@ describe('Tabs', () => {
       const tabs = renderTabs(<Tabs tabs={defaultTabs} activeTabId="fourth" onChange={() => void 0} />).wrapper;
 
       expect(tabs.findActiveTab()!.getElement()).toHaveTextContent('Fourth tab');
-      expect(tabs.findTabContent()).toBe(null);
+      expect(tabs.findTabContent()!.getElement()).toBeEmptyDOMElement();
     });
 
     test('displays first tab by default if uncontrolled', () => {
@@ -650,6 +665,96 @@ describe('Tabs', () => {
       expect(() =>
         renderTabs(<Tabs tabs={[{ id: 'test', label: 'test', href: "javascript:alert('Hello!')" }]} />)
       ).toThrow('A javascript: URL was blocked as a security precaution.');
+    });
+  });
+
+  describe('Tab header', () => {
+    test('keeps the ids of the tab links unchanged across re-renders', () => {
+      const firstTabId = defaultTabs[0].id;
+      const secondTabId = defaultTabs[1].id;
+      const { wrapper, rerender } = renderTabs(
+        <Tabs tabs={defaultTabs} activeTabId={firstTabId} onChange={() => void 0} />
+      );
+      const getFirstTabLinkElementId = () => wrapper.findTabLinkById(firstTabId)!.getElement()!.id;
+      const firstTabLinkElementId = getFirstTabLinkElementId();
+      expect(firstTabLinkElementId).toBeTruthy();
+      rerender(<Tabs tabs={defaultTabs} activeTabId={secondTabId} onChange={() => void 0} />);
+      expect(getFirstTabLinkElementId()).toEqual(firstTabLinkElementId);
+    });
+
+    describe('Scroll buttons', () => {
+      beforeEach(() => {
+        mockHorizontalOverflow = true;
+      });
+      afterEach(() => {
+        mockHorizontalOverflow = false;
+      });
+
+      const getScrollButtons = () => {
+        const { wrapper } = renderTabs(
+          <Tabs
+            tabs={defaultTabs}
+            i18nStrings={{ scrollLeftAriaLabel: 'Scroll left', scrollRightAriaLabel: 'Scroll right' }}
+          />
+        );
+        const buttons = wrapper.findAll('button');
+        const scrollLeftButton = buttons[0];
+        const scrollRightButton = buttons[buttons.length - 1];
+        return { scrollLeftButton, scrollRightButton };
+      };
+
+      it('have aria-label attribute', () => {
+        const { scrollLeftButton, scrollRightButton } = getScrollButtons();
+        expect(scrollLeftButton.getElement()).toHaveAttribute('aria-label', 'Scroll left');
+        expect(scrollRightButton.getElement()).toHaveAttribute('aria-label', 'Scroll right');
+      });
+
+      it('do not have aria-hidden attribute', () => {
+        const { scrollLeftButton, scrollRightButton } = getScrollButtons();
+        expect(scrollLeftButton.getElement()).not.toHaveAttribute('aria-hidden');
+        expect(scrollRightButton.getElement()).not.toHaveAttribute('aria-hidden');
+      });
+    });
+  });
+
+  describe('Tab content', () => {
+    test('has tabindex attribute', () => {
+      const tabs = renderTabs(<Tabs tabs={defaultTabs} />).wrapper;
+      expect(tabs.findTabContent()!.getElement()).toHaveAttribute('tabindex', '0');
+    });
+
+    test('has tabindex attribute even for empty tab content', () => {
+      const tabs = renderTabs(<Tabs tabs={defaultTabs} activeTabId={'fourth'} onChange={() => void 0} />).wrapper;
+      expect(tabs.findTabContent()!.getElement()).toHaveAttribute('tabindex', '0');
+    });
+
+    test('has aria-labelledby attribute set to the id of the corresponding tab', () => {
+      const activeTabId = defaultTabs[0].id;
+      const tabs = renderTabs(<Tabs tabs={defaultTabs} activeTabId={activeTabId} onChange={() => void 0} />).wrapper;
+      const firstTabLink = tabs.findTabLinkById(activeTabId)!.getElement()!;
+      const tabLinkElementId = firstTabLink.id;
+      expect(tabLinkElementId).toBeTruthy();
+      expect(tabs.findTabContent()!.getElement()).toHaveAttribute('aria-labelledby', tabLinkElementId);
+    });
+
+    test('changes aria-labelledby attribute accordingly when the active tab changes', () => {
+      const firstTabId = defaultTabs[0].id;
+      const secondTabId = defaultTabs[1].id;
+
+      const { wrapper, rerender } = renderTabs(
+        <Tabs tabs={defaultTabs} activeTabId={firstTabId} onChange={() => void 0} />
+      );
+
+      const verifyTabContentLabelledBy = (tabId: string) => {
+        const tabLink = wrapper.findTabLinkById(tabId)!.getElement()!;
+        const tabLinkElementId = tabLink.id;
+        expect(tabLinkElementId).toBeTruthy();
+        expect(wrapper.findTabContent()!.getElement()).toHaveAttribute('aria-labelledby', tabLinkElementId);
+      };
+
+      verifyTabContentLabelledBy(firstTabId);
+      rerender(<Tabs tabs={defaultTabs} activeTabId={secondTabId} onChange={() => void 0} />);
+      verifyTabContentLabelledBy(secondTabId);
     });
   });
 });
